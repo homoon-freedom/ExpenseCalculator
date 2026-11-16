@@ -14,7 +14,7 @@
 
     <!-- 상단 헤더 -->
     <header class="bg-emerald-700 text-white shadow-md sticky top-0 z-50">
-        <div class="max-w-md mx-auto px-4 py-3.5 flex justify-between items-center">
+        <div class="max-w-md sm:max-w-xl md:max-w-2xl mx-auto px-4 py-3.5 flex justify-between items-center">
             <div class="min-w-0 pr-2">
                 <h1 id="headerTripTitle" class="text-base sm:text-lg font-bold truncate">
                     여행 정산 & 송금 계산기
@@ -25,7 +25,7 @@
         </div>
     </header>
 
-    <main class="max-w-md mx-auto px-4 py-5 space-y-5">
+    <main class="max-w-md sm:max-w-xl md:max-w-2xl mx-auto px-4 py-5 space-y-5">
 
         <!-- 여행 장소 / 제목 섹션 -->
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-2">
@@ -67,8 +67,31 @@
             <div id="couplePanel" class="hidden border border-emerald-200 bg-emerald-50/50 rounded-xl p-3.5 space-y-3">
                 <div class="flex justify-between items-center">
                     <span class="text-xs font-bold text-emerald-800 flex items-center gap-1">🌺 부부 묶기 및 대표자 지정</span>
-                    <span class="text-[11px] text-slate-500">👑 클릭 시 대표 변경</span>
+                    <span class="text-[16px] text-slate-500">👑 이름 클릭 시 대표 변경</span>
                 </div>
+                
+                <!-- 부부 그룹 생성/편집 창 -->
+                <div class="bg-white p-3 rounded-xl border border-emerald-100 space-y-2">
+                    <div class="text-xs font-bold text-slate-700">새 부부 그룹 만들기</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="coupleMember1" onchange="updateRepSelectOptions()" class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white">
+                            <option value="">참여자 1 선택</option>
+                        </select>
+                        <select id="coupleMember2" onchange="updateRepSelectOptions()" class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white">
+                            <option value="">참여자 2 선택 (선택)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-between pt-1">
+                        <div class="text-[16px] text-slate-600 flex items-center gap-1.5">
+                            <span>대표자:</span>
+                            <select id="coupleRepSelect" class="border border-slate-300 rounded px-2 py-1 text-xs bg-white font-bold text-emerald-700">
+                                <option value="">먼저 참여자 선택</option>
+                            </select>
+                        </div>
+                        <button onclick="addNewCoupleGroup()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">부부 추가</button>
+                    </div>
+                </div>
+
                 <div id="coupleGroupList" class="space-y-2">
                     <!-- 동적 생성 -->
                 </div>
@@ -97,7 +120,7 @@
                 </div>
             </div>
 
-            <!-- 동적 항목 상세 입력 영역 (날짜 입력 폭 축소 및 패딩 최적화) -->
+            <!-- 동적 항목 상세 입력 영역 -->
             <div id="dynamicDetailInputs" class="space-y-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <!-- 동적으로 채워짐 -->
             </div>
@@ -110,7 +133,7 @@
             <div>
                 <div class="flex justify-between items-center mb-1.5">
                     <label class="text-xs text-slate-600 font-semibold">지출 참여 인원 (불참자 체크 해제 가능)</label>
-                    <span class="text-[11px] text-emerald-700 font-semibold">숙소/렌트는 일수 선택</span>
+                    <span class="text-[16px] text-emerald-700 font-semibold">숙소/렌트는 일수 선택</span>
                 </div>
                 <div id="expenseParticipantCheckboxes" class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <!-- 동적 생성 -->
@@ -223,6 +246,7 @@
                 btnCouple.className = "px-4 py-1.5 text-sm font-semibold rounded-lg transition bg-white text-slate-800 shadow-sm";
                 btnIndi.className = "px-4 py-1.5 text-sm font-semibold rounded-lg transition text-slate-600";
                 couplePanel.classList.remove('hidden');
+                updateCoupleFormOptions();
             }
             renderExpenseParticipants();
             calculateSettlement();
@@ -249,6 +273,7 @@
                     c.representative = c.members[0];
                 }
             });
+            state.couples = state.couples.filter(c => c.members.length > 0);
             renderAll();
         }
 
@@ -263,6 +288,77 @@
 
         function removeCoupleGroup(coupleId) {
             state.couples = state.couples.filter(c => c.id !== coupleId);
+            renderAll();
+            calculateSettlement();
+        }
+
+        function updateCoupleFormOptions() {
+            const m1 = document.getElementById('coupleMember1');
+            const m2 = document.getElementById('coupleMember2');
+            if(!m1 || !m2) return;
+            
+            const current1 = m1.value;
+            const current2 = m2.value;
+            
+            const optionsHtml = `<option value="">선택 안함</option>` + state.participants.map(p => `<option value="${p}">${p}</option>`).join('');
+            m1.innerHTML = `<option value="">참여자 1 선택</option>` + state.participants.map(p => `<option value="${p}">${p}</option>`).join('');
+            m2.innerHTML = optionsHtml;
+            
+            if(state.participants.includes(current1)) m1.value = current1;
+            if(state.participants.includes(current2)) m2.value = current2;
+            
+            updateRepSelectOptions();
+        }
+
+        function updateRepSelectOptions() {
+            const m1 = document.getElementById('coupleMember1')?.value;
+            const m2 = document.getElementById('coupleMember2')?.value;
+            const repSelect = document.getElementById('coupleRepSelect');
+            if(!repSelect) return;
+            
+            let selectedMembers = [m1, m2].filter(Boolean);
+            const currentRep = repSelect.value;
+            
+            repSelect.innerHTML = selectedMembers.length === 0 ? `<option value="">먼저 참여자 선택</option>` : selectedMembers.map(m => `<option value="${m}">${m}</option>`).join('');
+            if(selectedMembers.includes(currentRep)) repSelect.value = currentRep;
+            else if(selectedMembers.length > 0) repSelect.value = selectedMembers[0];
+        }
+
+        function addNewCoupleGroup() {
+            const m1 = document.getElementById('coupleMember1')?.value;
+            const m2 = document.getElementById('coupleMember2')?.value;
+            const rep = document.getElementById('coupleRepSelect')?.value;
+            
+            let members = [m1, m2].filter(Boolean);
+            if(members.length === 0) {
+                alert("부부로 묶을 참여자를 최소 1명 이상 선택해주세요.");
+                return;
+            }
+            if(!rep || !members.includes(rep)) {
+                alert("대표자를 올바르게 선택해주세요.");
+                return;
+            }
+            
+            for(let m of members) {
+                let existing = state.couples.find(c => c.members.includes(m));
+                if(existing) {
+                    alert(`"${m}"님은 이미 다른 부부 그룹에 속해 있습니다. 기존 그룹을 먼저 해제해주세요.`);
+                    return;
+                }
+            }
+            
+            const newId = state.couples.length > 0 ? Math.max(...state.couples.map(c => c.id)) + 1 : 1;
+            const coupleName = `부부${newId}`;
+            state.couples.push({
+                id: newId,
+                name: coupleName,
+                representative: rep,
+                members: members
+            });
+            
+            document.getElementById('coupleMember1').value = "";
+            document.getElementById('coupleMember2').value = "";
+            updateRepSelectOptions();
             renderAll();
             calculateSettlement();
         }
@@ -287,7 +383,6 @@
             coupleListContainer.innerHTML = state.couples.map(c => `
                 <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border border-emerald-100 text-xs sm:text-sm">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-bold text-emerald-700">${c.name}</span>
                         ${c.members.map(m => `
                             <button onclick="changeRepresentative(${c.id}, '${m}')" class="px-2.5 py-1 rounded-lg border transition ${m === c.representative ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}">
                                 ${m === c.representative ? '👑 ' : ''}${m}
@@ -298,6 +393,7 @@
                 </div>
             `).join('');
 
+            updateCoupleFormOptions();
             renderExpenseParticipants();
         }
 
@@ -306,16 +402,15 @@
             const detailContainer = document.getElementById('dynamicDetailInputs');
 
             if (category === '숙소' || category === '렌트') {
-                // 한 줄 배치를 유지하되 입력창 패딩과 글씨 크기를 콤팩트하게 조정하여 여유 확보
                 detailContainer.innerHTML = `
                     <div class="grid grid-cols-2 gap-1.5 w-full">
                         <div class="min-w-0">
                             <label class="text-xs text-slate-600 font-semibold block mb-1">시작일</label>
-                            <input type="date" id="startDate" onchange="calcNights()" oninput="calcNights()" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[11px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
+                            <input type="date" id="startDate" onchange="calcNights()" oninput="calcNights()" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[16px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
                         </div>
                         <div class="min-w-0">
                             <label class="text-xs text-slate-600 font-semibold block mb-1">마치는 날</label>
-                            <input type="date" id="endDate" onchange="calcNights()" oninput="calcNights()" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[11px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
+                            <input type="date" id="endDate" onchange="calcNights()" oninput="calcNights()" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[16px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
                         </div>
                     </div>
                     <div class="flex justify-between items-center text-xs text-emerald-700 font-bold pt-1">
@@ -333,7 +428,7 @@
                     <div class="grid grid-cols-2 gap-2 w-full">
                         <div class="min-w-0">
                             <label class="text-xs text-slate-600 font-semibold block mb-1">날짜</label>
-                            <input type="date" id="expenseDate" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[11px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
+                            <input type="date" id="expenseDate" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[16px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
                         </div>
                         <div class="min-w-0">
                             <label class="text-xs text-slate-600 font-semibold block mb-1">세부 항목명</label>
@@ -403,25 +498,56 @@
                     `;
                 }).join('');
             } else {
-                container.innerHTML = state.participants.map(p => {
+                let handledParticipants = new Set();
+                
+                let coupleRowsHtml = state.couples.map(c => {
+                    c.members.forEach(m => handledParticipants.add(m));
+                    const rep = c.representative;
+                    const others = c.members.filter(m => m !== rep);
+                    
+                    const selectId = `days_${rep}`;
+                    const existingSelect = document.getElementById(selectId);
+                    const prevVal = existingSelect ? parseInt(existingSelect.value) : maxDays;
+                    const selectedVal = prevVal > maxDays ? maxDays : prevVal;
+
+                    return `
+                        <div class="flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-100 text-xs sm:text-sm gap-2">
+                            <div class="flex items-center gap-3 min-w-0 flex-wrap flex-1">
+                                <label class="flex items-center gap-1.5 cursor-pointer text-slate-700 shrink-0">
+                                    <input type="checkbox" name="expPart" value="${rep}" checked class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+                                    <span class="font-extrabold text-slate-900">${rep}</span>
+                                </label>
+                                ${others.map(m => `
+                                    <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700 shrink-0">
+                                        <input type="checkbox" name="expPart" value="${m}" checked class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+                                        <span>${m}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                            ${isAccommodationOrRent ? `
+                                <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                                    <span class="text-xs text-slate-500">이용일수:</span>
+                                    <select id="${selectId}" class="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm bg-white font-bold text-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        ${Array.from({length: maxDays}, (_, i) => `<option value="${i+1}" ${i+1 === selectedVal ? 'selected' : ''}>${i+1}일</option>`).join('')}
+                                    </select>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                let singleParticipants = state.participants.filter(p => !handledParticipants.has(p));
+                let singleRowsHtml = singleParticipants.map(p => {
                     const selectId = `days_${p}`;
                     const existingSelect = document.getElementById(selectId);
                     const prevVal = existingSelect ? parseInt(existingSelect.value) : maxDays;
                     const selectedVal = prevVal > maxDays ? maxDays : prevVal;
 
-                    let coupleInfo = "";
-                    for(let c of state.couples) {
-                        if(c.members.includes(p)) {
-                            coupleInfo = ` <span class="text-[11px] text-emerald-600 font-bold">(${c.name}${p === c.representative ? ', 대표' : ''})</span>`;
-                            break;
-                        }
-                    }
-
                     return `
-                        <div class="flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-100 text-xs sm:text-sm">
+                        <div class="flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm">
                             <label class="flex items-center gap-2.5 cursor-pointer font-semibold text-slate-700 min-w-0 truncate">
                                 <input type="checkbox" name="expPart" value="${p}" checked class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 shrink-0">
-                                <span class="truncate">${p}${coupleInfo}</span>
+                                <span class="truncate">${p} (개인)</span>
                             </label>
                             ${isAccommodationOrRent ? `
                                 <div class="flex items-center gap-1.5 shrink-0 ml-2">
@@ -434,6 +560,8 @@
                         </div>
                     `;
                 }).join('');
+
+                container.innerHTML = coupleRowsHtml + singleRowsHtml;
             }
         }
 
@@ -462,7 +590,16 @@
                 let participantDays = {};
                 checkboxes.forEach(cb => {
                     const name = cb.value;
-                    const selectElem = document.getElementById(`days_${name}`);
+                    let selectName = name;
+                    if (state.calcMode === 'couple') {
+                        for (let c of state.couples) {
+                            if (c.members.includes(name)) {
+                                selectName = c.representative;
+                                break;
+                            }
+                        }
+                    }
+                    const selectElem = document.getElementById(`days_${selectName}`);
                     participantDays[name] = selectElem ? parseInt(selectElem.value) : maxDays;
                 });
 
@@ -618,19 +755,23 @@
                     }
                 } else {
                     let rawParts = e.detail.participants; 
-                    let targetPartsMap = {};
+                    let targetWeights = {};
+                    targets.forEach(t => targetWeights[t] = 0);
+
                     rawParts.forEach(p => {
                         let targetKey = getTargetRepresentative(p);
-                        targetPartsMap[targetKey] = true;
+                        targetWeights[targetKey] = (targetWeights[targetKey] || 0) + 1;
                     });
 
-                    let targetKeys = Object.keys(targetPartsMap);
-                    let count = targetKeys.length;
-                    if(count > 0) {
-                        let share = e.amount / count;
-                        targetKeys.forEach(t => {
-                            itemConsumed[t] = (itemConsumed[t] || 0) + share;
-                            consumedMap[t] += share;
+                    let totalWeight = Object.values(targetWeights).reduce((a, b) => a + b, 0);
+                    if(totalWeight > 0) {
+                        targets.forEach(t => {
+                            let weight = targetWeights[t] || 0;
+                            if(weight > 0) {
+                                let share = e.amount * (weight / totalWeight);
+                                itemConsumed[t] = (itemConsumed[t] || 0) + share;
+                                consumedMap[t] += share;
+                            }
                         });
                     }
                 }
@@ -739,7 +880,7 @@
                             <div class="text-slate-600">결제금액: <strong class="text-slate-900 font-bold">${data.paid.toLocaleString()}원</strong></div>
                             <div class="text-slate-600">부담할몫: <strong class="text-slate-900 font-bold">${data.ceilConsumed.toLocaleString()}원</strong></div>
                         </div>
-                        <div class="text-[11px] text-slate-400">
+                        <div class="text-[16px] text-slate-400">
                             (원금: ${Math.round(data.consumed).toLocaleString()}원 + 1,000원 단위 이하 올림)
                         </div>
                         <div class="space-y-1.5 pt-1">
