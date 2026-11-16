@@ -297,6 +297,10 @@
 
         function setCalcMode(mode, save = true) {
             state.calcMode = mode;
+            if(mode === 'couple') {
+                state.settingsOpen = true; // 부부별 선택 시 설정창이 접혀있어도 자동 펼침
+                renderSettingsPanelState();
+            }
             if (save) saveToStorage();
 
             const btnIndi = document.getElementById('modeIndividual');
