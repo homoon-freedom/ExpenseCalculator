@@ -66,29 +66,23 @@
 
             <div id="couplePanel" class="hidden border border-emerald-200 bg-emerald-50/50 rounded-xl p-3.5 space-y-3">
                 <div class="flex justify-between items-center">
-                    <span class="text-xs font-bold text-emerald-800 flex items-center gap-1">🌺 부부 묶기 및 대표자 지정</span>
-                    <span class="text-[16px] text-slate-500">👑 이름 클릭 시 대표 변경</span>
+                    <span class="text-xs font-bold text-emerald-800 flex items-center gap-1">🌺 부부 묶기 및 대표자 변경</span>
+                    <span class="text-[11px] text-slate-500">👑 이름 클릭 시 대표 변경 (첫 번째 자동 대표)</span>
                 </div>
                 
                 <!-- 부부 그룹 생성/편집 창 -->
                 <div class="bg-white p-3 rounded-xl border border-emerald-100 space-y-2">
                     <div class="text-xs font-bold text-slate-700">새 부부 그룹 만들기</div>
                     <div class="grid grid-cols-2 gap-2">
-                        <select id="coupleMember1" onchange="updateRepSelectOptions()" class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white">
-                            <option value="">참여자 1 선택</option>
+                        <select id="coupleMember1" class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white">
+                            <option value="">참여자 1 선택 (대표)</option>
                         </select>
-                        <select id="coupleMember2" onchange="updateRepSelectOptions()" class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white">
+                        <select id="coupleMember2" class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white">
                             <option value="">참여자 2 선택 (선택)</option>
                         </select>
                     </div>
-                    <div class="flex items-center justify-between pt-1">
-                        <div class="text-[16px] text-slate-600 flex items-center gap-1.5">
-                            <span>대표자:</span>
-                            <select id="coupleRepSelect" class="border border-slate-300 rounded px-2 py-1 text-xs bg-white font-bold text-emerald-700">
-                                <option value="">먼저 참여자 선택</option>
-                            </select>
-                        </div>
-                        <button onclick="addNewCoupleGroup()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">부부 추가</button>
+                    <div class="flex justify-end pt-1">
+                        <button onclick="addNewCoupleGroup()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition">부부 추가</button>
                     </div>
                 </div>
 
@@ -133,14 +127,14 @@
             <div>
                 <div class="flex justify-between items-center mb-1.5">
                     <label class="text-xs text-slate-600 font-semibold">지출 참여 인원 (불참자 체크 해제 가능)</label>
-                    <span class="text-[16px] text-emerald-700 font-semibold">숙소/렌트는 일수 선택</span>
+                    <span class="text-[11px] text-emerald-700 font-semibold">숙소/렌트는 일수 선택</span>
                 </div>
                 <div id="expenseParticipantCheckboxes" class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <!-- 동적 생성 -->
                 </div>
             </div>
 
-            <button onclick="addExpense()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-3 rounded-xl text-base transition shadow-sm">지출 내역 추가</button>
+            <button id="submitExpenseBtn" onclick="addExpense()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-3 rounded-xl text-base transition shadow-sm">지출 내역 추가</button>
         </section>
 
         <!-- 지출 내역 목록 -->
@@ -192,13 +186,46 @@
                 { id: 3, name: "부부3", representative: "마카엘", members: ["마카엘", "별"] }
             ],
             expenses: [],
-            remittances: {}
+            remittances: {},
+            editingExpenseId: null
         };
 
+        const STORAGE_KEY = 'travel_settlement_app_state_v2';
+
+        function saveToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.error("Storage save failed:", e);
+            }
+        }
+
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    state = { ...state, ...parsed };
+                } else {
+                    state.participants = ["찬팅", "찬다", "미르", "나나", "마카엘", "별"];
+                }
+            } catch (e) {
+                console.error("Storage load failed:", e);
+                state.participants = ["찬팅", "찬다", "미르", "나나", "마카엘", "별"];
+            }
+        }
+
         window.onload = function() {
-            state.participants = ["찬팅", "찬다", "미르", "나나", "마카엘", "별"];
+            loadFromStorage();
+            document.getElementById('tripTitle').value = state.title || '';
+            updateHeaderTitle();
+            setCalcMode(state.calcMode, false);
             renderAll();
             onCategoryChange();
+            if (state.expenses.length > 0) {
+                renderExpenseList();
+                calculateSettlement();
+            }
         };
 
         function closeApp() {
@@ -219,6 +246,7 @@
 
         function saveTrip() {
             state.title = document.getElementById('tripTitle').value;
+            saveToStorage();
             alert(`"${state.title || '여행'}" 정보가 저장되었습니다.`);
         }
 
@@ -232,8 +260,10 @@
             }
         }
 
-        function setCalcMode(mode) {
+        function setCalcMode(mode, save = true) {
             state.calcMode = mode;
+            if (save) saveToStorage();
+
             const btnIndi = document.getElementById('modeIndividual');
             const btnCouple = document.getElementById('modeCouple');
             const couplePanel = document.getElementById('couplePanel');
@@ -262,6 +292,7 @@
             }
             state.participants.push(name);
             input.value = '';
+            saveToStorage();
             renderAll();
         }
 
@@ -274,6 +305,7 @@
                 }
             });
             state.couples = state.couples.filter(c => c.members.length > 0);
+            saveToStorage();
             renderAll();
         }
 
@@ -281,6 +313,7 @@
             const couple = state.couples.find(c => c.id === coupleId);
             if(couple) {
                 couple.representative = memberName;
+                saveToStorage();
                 renderAll();
                 calculateSettlement();
             }
@@ -288,6 +321,7 @@
 
         function removeCoupleGroup(coupleId) {
             state.couples = state.couples.filter(c => c.id !== coupleId);
+            saveToStorage();
             renderAll();
             calculateSettlement();
         }
@@ -301,41 +335,20 @@
             const current2 = m2.value;
             
             const optionsHtml = `<option value="">선택 안함</option>` + state.participants.map(p => `<option value="${p}">${p}</option>`).join('');
-            m1.innerHTML = `<option value="">참여자 1 선택</option>` + state.participants.map(p => `<option value="${p}">${p}</option>`).join('');
+            m1.innerHTML = `<option value="">참여자 1 선택 (대표)</option>` + state.participants.map(p => `<option value="${p}">${p}</option>`).join('');
             m2.innerHTML = optionsHtml;
             
             if(state.participants.includes(current1)) m1.value = current1;
             if(state.participants.includes(current2)) m2.value = current2;
-            
-            updateRepSelectOptions();
-        }
-
-        function updateRepSelectOptions() {
-            const m1 = document.getElementById('coupleMember1')?.value;
-            const m2 = document.getElementById('coupleMember2')?.value;
-            const repSelect = document.getElementById('coupleRepSelect');
-            if(!repSelect) return;
-            
-            let selectedMembers = [m1, m2].filter(Boolean);
-            const currentRep = repSelect.value;
-            
-            repSelect.innerHTML = selectedMembers.length === 0 ? `<option value="">먼저 참여자 선택</option>` : selectedMembers.map(m => `<option value="${m}">${m}</option>`).join('');
-            if(selectedMembers.includes(currentRep)) repSelect.value = currentRep;
-            else if(selectedMembers.length > 0) repSelect.value = selectedMembers[0];
         }
 
         function addNewCoupleGroup() {
             const m1 = document.getElementById('coupleMember1')?.value;
             const m2 = document.getElementById('coupleMember2')?.value;
-            const rep = document.getElementById('coupleRepSelect')?.value;
             
             let members = [m1, m2].filter(Boolean);
             if(members.length === 0) {
                 alert("부부로 묶을 참여자를 최소 1명 이상 선택해주세요.");
-                return;
-            }
-            if(!rep || !members.includes(rep)) {
-                alert("대표자를 올바르게 선택해주세요.");
                 return;
             }
             
@@ -352,13 +365,13 @@
             state.couples.push({
                 id: newId,
                 name: coupleName,
-                representative: rep,
+                representative: members[0], // 앞쪽에 있는 참여자를 자동으로 대표자로 지정
                 members: members
             });
             
             document.getElementById('coupleMember1').value = "";
             document.getElementById('coupleMember2').value = "";
-            updateRepSelectOptions();
+            saveToStorage();
             renderAll();
             calculateSettlement();
         }
@@ -406,11 +419,11 @@
                     <div class="grid grid-cols-2 gap-1.5 w-full">
                         <div class="min-w-0">
                             <label class="text-xs text-slate-600 font-semibold block mb-1">시작일</label>
-                            <input type="date" id="startDate" onchange="calcNights()" oninput="calcNights()" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[16px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
+                            <input type="date" id="startDate" onchange="calcNights()" oninput="calcNights()" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[11px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
                         </div>
                         <div class="min-w-0">
                             <label class="text-xs text-slate-600 font-semibold block mb-1">마치는 날</label>
-                            <input type="date" id="endDate" onchange="calcNights()" oninput="calcNights()" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[16px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
+                            <input type="date" id="endDate" onchange="calcNights()" oninput="calcNights()" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[11px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
                         </div>
                     </div>
                     <div class="flex justify-between items-center text-xs text-emerald-700 font-bold pt-1">
@@ -428,7 +441,7 @@
                     <div class="grid grid-cols-2 gap-2 w-full">
                         <div class="min-w-0">
                             <label class="text-xs text-slate-600 font-semibold block mb-1">날짜</label>
-                            <input type="date" id="expenseDate" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[16px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
+                            <input type="date" id="expenseDate" class="w-full min-w-0 border border-slate-300 rounded-xl px-1.5 py-2 text-[11px] sm:text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 box-border">
                         </div>
                         <div class="min-w-0">
                             <label class="text-xs text-slate-600 font-semibold block mb-1">세부 항목명</label>
@@ -623,22 +636,106 @@
                 };
             }
 
-            const newExpense = {
-                id: Date.now(),
-                category,
-                payer,
-                amount,
-                detail: detailInfo
-            };
+            if(state.editingExpenseId) {
+                const index = state.expenses.findIndex(e => e.id === state.editingExpenseId);
+                if(index !== -1) {
+                    state.expenses[index] = {
+                        id: state.editingExpenseId,
+                        category,
+                        payer,
+                        amount,
+                        detail: detailInfo
+                    };
+                }
+                state.editingExpenseId = null;
+                document.getElementById('submitExpenseBtn').innerText = "지출 내역 추가";
+            } else {
+                const newExpense = {
+                    id: Date.now(),
+                    category,
+                    payer,
+                    amount,
+                    detail: detailInfo
+                };
+                state.expenses.push(newExpense);
+            }
 
-            state.expenses.push(newExpense);
             document.getElementById('expenseAmount').value = '';
+            saveToStorage();
             renderExpenseList();
             calculateSettlement();
         }
 
+        function editExpense(id) {
+            const expense = state.expenses.find(e => e.id === id);
+            if(!expense) return;
+
+            state.editingExpenseId = id;
+            document.getElementById('expenseCategory').value = expense.category;
+            onCategoryChange();
+
+            document.getElementById('expensePayer').value = expense.payer;
+            document.getElementById('expenseAmount').value = expense.amount;
+
+            if(expense.category === '숙소' || expense.category === '렌트') {
+                document.getElementById('startDate').value = expense.detail.startDate;
+                document.getElementById('endDate').value = expense.detail.endDate;
+                calcNights();
+                
+                setTimeout(() => {
+                    const checkboxes = document.querySelectorAll('input[name="expPart"]');
+                    checkboxes.forEach(cb => {
+                        const name = cb.value;
+                        if(expense.detail.participantDays && expense.detail.participantDays[name] !== undefined) {
+                            cb.checked = true;
+                            const selectElem = document.getElementById(`days_${name}`);
+                            if(selectElem) selectElem.value = expense.detail.participantDays[name];
+                        } else {
+                            let found = false;
+                            for(let c of state.couples) {
+                                if(c.representative === name) {
+                                    for(let m of c.members) {
+                                        if(expense.detail.participantDays && expense.detail.participantDays[m] !== undefined) {
+                                            found = true;
+                                            cb.checked = true;
+                                            const selectElem = document.getElementById(`days_${name}`);
+                                            if(selectElem) selectElem.value = expense.detail.participantDays[m];
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if(!found) cb.checked = false;
+                        }
+                    });
+                }, 50);
+            } else {
+                document.getElementById('expenseDate').value = expense.detail.date || '';
+                document.getElementById('expenseDetailName').value = expense.detail.detailName || '';
+
+                setTimeout(() => {
+                    const checkboxes = document.querySelectorAll('input[name="expPart"]');
+                    checkboxes.forEach(cb => {
+                        if(expense.detail.participants && expense.detail.participants.includes(cb.value)) {
+                            cb.checked = true;
+                        } else {
+                            cb.checked = false;
+                        }
+                    });
+                }, 50);
+            }
+
+            document.getElementById('submitExpenseBtn').innerText = "지출 내역 수정 완료";
+            document.getElementById('expenseCategory').scrollIntoView({ behavior: 'smooth' });
+        }
+
         function removeExpense(id) {
             state.expenses = state.expenses.filter(e => e.id !== id);
+            if(state.editingExpenseId === id) {
+                state.editingExpenseId = null;
+                document.getElementById('submitExpenseBtn').innerText = "지출 내역 추가";
+            }
+            saveToStorage();
             renderExpenseList();
             calculateSettlement();
         }
@@ -670,7 +767,10 @@
                             </div>
                             <div class="text-xs text-slate-500 truncate">${subDesc}</div>
                         </div>
-                        <button onclick="removeExpense(${e.id})" class="text-slate-400 hover:text-red-600 font-bold px-2.5 py-1 text-lg shrink-0">&times;</button>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button onclick="editExpense(${e.id})" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold transition">수정</button>
+                            <button onclick="removeExpense(${e.id})" class="text-slate-400 hover:text-red-600 font-bold px-2.5 py-1 text-lg shrink-0">&times;</button>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -678,6 +778,7 @@
 
         function toggleRemittanceCheck(key) {
             state.remittances[key] = !state.remittances[key];
+            saveToStorage();
             calculateSettlement();
         }
 
@@ -874,14 +975,10 @@
                                 <span class="text-base font-bold text-slate-900 truncate">👑 ${cardTitle}</span>
                                 <span class="text-xs text-slate-500 shrink-0 font-medium">${subTitleText}</span>
                             </div>
-                            <span class="bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-1 rounded-full shrink-0">정산완료 (${data.ceilConsumed.toLocaleString()}원)</span>
                         </div>
                         <div class="grid grid-cols-2 gap-2 text-xs sm:text-sm py-1">
                             <div class="text-slate-600">결제금액: <strong class="text-slate-900 font-bold">${data.paid.toLocaleString()}원</strong></div>
-                            <div class="text-slate-600">부담할몫: <strong class="text-slate-900 font-bold">${data.ceilConsumed.toLocaleString()}원</strong></div>
-                        </div>
-                        <div class="text-[16px] text-slate-400">
-                            (원금: ${Math.round(data.consumed).toLocaleString()}원 + 1,000원 단위 이하 올림)
+                            <div class="text-slate-600">총비용: <strong class="text-slate-900 font-bold">${data.ceilConsumed.toLocaleString()}원</strong></div>
                         </div>
                         <div class="space-y-1.5 pt-1">
                             <div class="text-xs font-bold text-slate-600">항목별 송금 대상 리스트:</div>
